@@ -5,5 +5,7 @@ public class Orderservice {
         System.out.println("Order Placed");
         Emailservice emailservice = new Emailservice();
         emailservice.emailService();
+        SMSNotification smsnotification = new SMSNotification();
+        smsnotification.sendSMS();
     }
 }
