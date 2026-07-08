@@ -1,0 +1,4 @@
+------------------------------------------------------ARRAY-------------------------------------------------------------------
+
+1 . fixed size |  homginous data type |  accesees any of element with index is -> O(1)  | 
+2 . ARRAY 
