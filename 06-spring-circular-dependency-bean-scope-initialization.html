@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circular Dependency, Bean Scope &amp; Bean Initialization in Spring | HelloMohit722</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0d1117;--surface:#161b22;--surface2:#1c2333;--border:#30363d;
+    --green:#58d68d;--green-light:#a8f0c6;--blue:#58a6ff;--orange:#f0883e;--purple:#bc8cff;
+    --text:#e6edf3;--text2:#8b949e;--muted:#484f58;--code-bg:#0d1117;
+    --tag-g:rgba(88,214,141,.15);--tag-b:rgba(88,166,255,.15);--tag-o:rgba(240,136,62,.15);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;line-height:1.7;font-size:16px}
+  nav{position:sticky;top:0;z-index:100;background:rgba(13,17,23,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:56px}
+  .nav-brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1rem;color:var(--text);text-decoration:none}
+  .nav-logo{width:32px;height:32px;background:linear-gradient(135deg,var(--green),var(--blue));border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:#0d1117}
+  .nav-tag{font-size:.7rem;background:var(--tag-g);color:var(--green);border:1px solid rgba(88,214,141,.3);border-radius:20px;padding:2px 10px;font-weight:600}
+  .hero{padding:80px 2rem 60px;max-width:900px;margin:0 auto;text-align:center}
+  .eyebrow{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;font-weight:600;color:var(--green);letter-spacing:.08em;text-transform:uppercase;background:var(--tag-g);border:1px solid rgba(88,214,141,.25);border-radius:20px;padding:4px 14px;margin-bottom:24px}
+  .hero h1{font-size:clamp(2.2rem,5vw,3.8rem);font-weight:800;line-height:1.15;letter-spacing:-.02em;margin-bottom:16px}
+  .hero h1 .g{color:var(--green)}.hero h1 .b{color:var(--blue)}
+  .hero-sub{font-size:1.1rem;color:var(--text2);max-width:600px;margin:0 auto 32px}
+  .meta{display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;font-size:.85rem;color:var(--text2)}
+  .meta span{display:flex;align-items:center;gap:6px}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block}
+  .wrapper{max-width:880px;margin:0 auto;padding:0 2rem 120px}
+  .progress-bar{position:fixed;top:56px;left:0;height:2px;background:linear-gradient(90deg,var(--green),var(--blue));transition:width .1s;z-index:99;width:0}
+  .part-divider{margin:56px 0 24px;padding-bottom:10px;border-bottom:2px solid var(--border);display:flex;align-items:center;gap:12px}
+  .part-divider h2{font-size:1.3rem;font-weight:800;color:var(--text)}
+  .part-divider .pnum{font-family:'JetBrains Mono',monospace;font-size:.75rem;font-weight:700;color:var(--blue);background:var(--tag-b);border:1px solid rgba(88,166,255,.3);border-radius:6px;padding:3px 10px}
+  .section{margin-bottom:40px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface);transition:border-color .2s}
+  .section:hover{border-color:rgba(88,214,141,.3)}
+  .sh{padding:20px 28px 18px;display:flex;align-items:flex-start;gap:16px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
+  .snum{font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:700;color:var(--green);background:var(--tag-g);border:1px solid rgba(88,214,141,.25);border-radius:6px;padding:3px 9px;white-space:nowrap;margin-top:3px;flex-shrink:0}
+  .stitle{font-size:1.15rem;font-weight:700;color:var(--text);flex:1}
+  .chevron{color:var(--muted);font-size:1rem;transition:transform .25s;flex-shrink:0;margin-top:4px}
+  .section.open .chevron{transform:rotate(180deg)}
+  .sb{padding:24px 28px;display:none}.section.open .sb{display:block}
+  .sb p{color:var(--text2);margin-bottom:16px;font-size:.97rem}.sb p:last-child{margin-bottom:0}
+  .sb strong{color:var(--text);font-weight:600}
+  .sb h4{margin:20px 0 12px;color:var(--text);font-size:.95rem}
+  .callout{border-left:3px solid var(--green);background:var(--tag-g);padding:12px 18px;border-radius:0 8px 8px 0;margin:18px 0;font-size:.92rem;color:var(--green-light);font-style:italic}
+  .cb{border-left-color:var(--blue);background:var(--tag-b);color:#a5c9ff}
+  .co{border-left-color:var(--orange);background:var(--tag-o);color:#ffc48a}
+  pre,code{font-family:'JetBrains Mono',monospace}
+  pre{background:var(--code-bg);border:1px solid var(--border);border-radius:10px;padding:18px 20px;overflow-x:auto;margin:16px 0;font-size:.83rem;line-height:1.7;color:#c9d1d9}
+  pre .kw{color:#ff7b72}pre .fn{color:#d2a8ff}pre .str{color:#a5d6ff}pre .cm{color:#8b949e;font-style:italic}pre .ann{color:#f0883e}pre .num{color:#58d68d}pre .val{color:#79c0ff}pre .ty{color:#79c0ff}
+  code{font-size:.83rem;background:var(--surface2);border:1px solid var(--border);padding:1px 7px;border-radius:5px;color:var(--orange)}
+  .clabel{font-size:.7rem;font-family:'JetBrains Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;font-weight:600}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:.88rem}
+  th{background:var(--surface2);color:var(--text);font-weight:600;padding:10px 14px;text-align:left;border-bottom:2px solid var(--border)}
+  td{padding:10px 14px;color:var(--text2);border-bottom:1px solid var(--border);vertical-align:top}
+  tr:last-child td{border-bottom:none}tr:hover td{background:rgba(88,214,141,.04)}
+  .badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:5px}
+  .bg{background:rgba(88,214,141,.15);color:var(--green)}.bp{background:rgba(240,136,62,.15);color:var(--orange)}
+  .bu{background:rgba(88,166,255,.15);color:var(--blue)}.bh{background:rgba(188,140,255,.15);color:var(--purple)}.bd{background:rgba(248,81,73,.15);color:#f85149}
+  .flow{display:flex;flex-direction:column;gap:0;margin:18px 0}
+  .fi{display:flex;align-items:center;gap:14px}
+  .fb{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 18px;font-size:.88rem;font-weight:500;color:var(--text);flex:1;text-align:center}
+  .fb.g{border-color:rgba(88,214,141,.4);color:var(--green);background:var(--tag-g)}
+  .fb.b{border-color:rgba(88,166,255,.4);color:var(--blue);background:var(--tag-b)}
+  .fb.o{border-color:rgba(240,136,62,.4);color:var(--orange);background:var(--tag-o)}
+  .fa{font-size:1.3rem;color:var(--muted);text-align:center;line-height:1;padding:4px 0;margin-left:36px}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+  @media(max-width:600px){.g2{grid-template-columns:1fr}}
+  .gc{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
+  .gc h4{font-size:.85rem;font-weight:700;color:var(--text);margin-bottom:8px}
+  .gc ul{list-style:none;padding:0}
+  .gc ul li{font-size:.83rem;color:var(--text2);padding:3px 0;display:flex;align-items:center;gap:8px}
+  .gc ul li::before{content:"\25B8";color:var(--green);font-size:.65rem}
+  .sumbox{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:24px 28px;margin:40px 0}
+  .sumbox h3{font-size:1rem;font-weight:700;color:var(--green);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+  .sumbox ul{list-style:none;padding:0}
+  .sumbox ul li{font-size:.88rem;color:var(--text2);padding:6px 0;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:10px}
+  .sumbox ul li:last-child{border-bottom:none}
+  .sumbox ul li::before{content:"\2713";color:var(--green);font-weight:700;flex-shrink:0}
+  footer{text-align:center;padding:32px;border-top:1px solid var(--border);color:var(--muted);font-size:.82rem}
+  footer a{color:var(--green);text-decoration:none}
+  .toc{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:40px}
+  .toc h3{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:14px}
+  .toc-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px}
+  .toc a{font-size:.82rem;color:var(--text2);text-decoration:none;padding:5px 8px;border-radius:6px;display:flex;align-items:center;gap:8px;transition:background .15s,color .15s}
+  .toc a:hover{background:var(--surface2);color:var(--green)}
+  .toc a span{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted)}
+  .nav-links{display:flex;gap:18px;align-items:center}
+  .nav-links a{font-size:.78rem;color:var(--text2);text-decoration:none;transition:color .15s}
+  .nav-links a:hover{color:var(--green)}
+  .diagram{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin:16px 0;font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--text2);line-height:1.9;white-space:pre}
+  .diagram .node{color:var(--green)}
+  .diagram .node2{color:var(--blue)}
+  .diagram .node3{color:var(--orange)}
+  .diagram .arrow{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="progress-bar" id="progress"></div>
+<nav>
+  <a href="#" class="nav-brand">
+    <div class="nav-logo">HM</div>HelloMohit722
+  </a>
+  <div class="nav-links">
+    <a href="#">&#8592; Lecture 5</a>
+    <span class="nav-tag">Lecture 6</span>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="eyebrow">&#128216; Backend Development Series &#183; Lecture 6</div>
+  <h1><span class="g">Circular Dependency, Bean Scope</span><br><span class="b">&amp; Bean Initialization in Spring</span></h1>
+  <p class="hero-sub">Why bean creation order matters, why circular dependencies happen (and when Spring can survive them), how <code style="background:transparent;border:none;color:var(--green-light);padding:0">singleton</code> and <code style="background:transparent;border:none;color:var(--green-light);padding:0">prototype</code> scopes differ, and how <code style="background:transparent;border:none;color:var(--green-light);padding:0">@Lazy</code> and the bean lifecycle actually work under the hood.</p>
+  <div class="meta">
+    <span><span class="dot"></span>50 Topics</span>
+    <span><span class="dot"></span>HelloMohit722</span>
+    <span><span class="dot"></span>Java Backend</span>
+  </div>
+</div>
+
+<div class="wrapper">
+  <div class="toc">
+    <h3>&#128203; What you'll learn</h3>
+    <div class="toc-g">
+      <a href="#s1"><span>#01</span> Quick Recap: DI, IoC and Beans</a>
+      <a href="#s2"><span>#02</span> @Configuration Is Also a Component</a>
+      <a href="#s3"><span>#03</span> Can Spring Create Beans in Any Order?</a>
+      <a href="#s4"><span>#04</span> Why This Matters for Circular Dependency</a>
+      <a href="#s5"><span>#05</span> What Is Circular Dependency?</a>
+      <a href="#s6"><span>#06</span> Not Only a Spring Problem</a>
+      <a href="#s7"><span>#07</span> Why Constructor Injection Fails</a>
+      <a href="#s8"><span>#08</span> Why Constructor Injection Is Still Recommended</a>
+      <a href="#s9"><span>#09</span> Circular Dependency Using Setter Injection</a>
+      <a href="#s10"><span>#10</span> Circular Dependency Using Field Injection</a>
+      <a href="#s11"><span>#11</span> Why Setter/Field Circular Dependency May Work</a>
+      <a href="#s12"><span>#12</span> Normal Dependency Flow</a>
+      <a href="#s13"><span>#13</span> Circular Dependency Flow with Early Reference</a>
+      <a href="#s14"><span>#14</span> Important Spring Boot Point</a>
+      <a href="#s15"><span>#15</span> Circular Dependency Usually Indicates Mixed Responsibilities</a>
+      <a href="#s16"><span>#16</span> Best Way to Solve Circular Dependency</a>
+      <a href="#s17"><span>#17</span> What Is Bean Scope?</a>
+      <a href="#s18"><span>#18</span> What Is Singleton Scope?</a>
+      <a href="#s19"><span>#19</span> Singleton Scope Demo</a>
+      <a href="#s20"><span>#20</span> Important Clarification About Singleton</a>
+      <a href="#s21"><span>#21</span> Singleton Is Per Bean Definition, Not Per Class</a>
+      <a href="#s22"><span>#22</span> What Is Prototype Scope?</a>
+      <a href="#s23"><span>#23</span> Prototype Feels Closer to new</a>
+      <a href="#s24"><span>#24</span> When to Use Singleton and Prototype</a>
+      <a href="#s25"><span>#25</span> Prototype Bean Injected Into Singleton Bean</a>
+      <a href="#s26"><span>#26</span> Web-Specific Bean Scopes</a>
+      <a href="#s27"><span>#27</span> Request Scope</a>
+      <a href="#s28"><span>#28</span> Session Scope</a>
+      <a href="#s29"><span>#29</span> Application Scope</a>
+      <a href="#s30"><span>#30</span> When Are Beans Actually Created?</a>
+      <a href="#s31"><span>#31</span> What Is Eager Initialization?</a>
+      <a href="#s32"><span>#32</span> Why Eager Initialization Is the Default</a>
+      <a href="#s33"><span>#33</span> What Is Lazy Initialization?</a>
+      <a href="#s34"><span>#34</span> Lazy Bean Needed by Eager Bean</a>
+      <a href="#s35"><span>#35</span> Lazy Dependency Injection Using Proxy</a>
+      <a href="#s36"><span>#36</span> Bean-Level @Lazy vs Injection-Point @Lazy</a>
+      <a href="#s37"><span>#37</span> Enabling Global Lazy Initialization</a>
+      <a href="#s38"><span>#38</span> Default Value</a>
+      <a href="#s39"><span>#39</span> Opting Out of Global Lazy Initialization</a>
+      <a href="#s40"><span>#40</span> Eager Bean Depends on Lazy Bean</a>
+      <a href="#s41"><span>#41</span> Lazy Bean Depends on Eager Bean</a>
+      <a href="#s42"><span>#42</span> Lazy Bean Depends on Lazy Bean</a>
+      <a href="#s43"><span>#43</span> Using @Lazy to Break Constructor Circular Dependency</a>
+      <a href="#s44"><span>#44</span> Important Warning</a>
+      <a href="#s45"><span>#45</span> What Is Bean Lifecycle?</a>
+      <a href="#s46"><span>#46</span> Complete Journey of a Spring Bean</a>
+      <a href="#s47"><span>#47</span> Circular Dependency Summary</a>
+      <a href="#s48"><span>#48</span> Scope Summary</a>
+      <a href="#s49"><span>#49</span> Initialization Summary</a>
+      <a href="#s50"><span>#50</span> Key Takeaways</a>
+    </div>
+  </div>
+
+  <!-- PART 0 -->
+  <!-- S1 -->
+  <div class="section open" id="s1">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#01</span><span class="stitle">Quick Recap: DI, IoC and Beans</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Before understanding circular dependency, bean scopes, and initialization, we should already be clear about three basic Spring concepts.</p>
+      <table>
+        <tr><th>Concept</th><th>Meaning</th></tr>
+        <tr><td><strong>DI</strong></td><td>Dependency Injection. Spring provides the required dependency to a class instead of the class creating it manually.</td></tr>
+        <tr><td><strong>IoC</strong></td><td>Inversion of Control. The control of object creation and dependency management is given to the Spring container.</td></tr>
+        <tr><td><strong>Bean</strong></td><td>An object created, managed, and maintained by the Spring IoC container.</td></tr>
+      </table>
+      <p>In Spring, classes annotated with annotations like <code>@Component</code>, <code>@Service</code>, <code>@Repository</code>, <code>@Controller</code>, or methods annotated with <code>@Bean</code> can become Spring-managed beans.</p>
+    </div>
+  </div>
+
+  <!-- S2 -->
+  <div class="section" id="s2">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#02</span><span class="stitle">@Configuration Is Also a Spring Component</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>In Spring, <code>@Configuration</code> is used to define configuration classes.</p>
+      <pre><span class="ann">@Configuration</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">AppConfig</span> {
+}</pre>
+      <p>A configuration class can contain <code>@Bean</code> methods:</p>
+      <pre><span class="ann">@Configuration</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">AppConfig</span> {
+
+    <span class="ann">@Bean</span>
+    <span class="kw">public</span> PaymentService <span class="fn">paymentService</span>() {
+        <span class="kw">return</span> <span class="kw">new</span> PaymentService();
+    }
+}</pre>
+      <p>An important point is that <code>@Configuration</code> itself internally contains <code>@Component</code>. That means a class annotated with <code>@Configuration</code> is also detected by component scanning and registered as a Spring bean.</p>
+      <div class="diagram"><span class="node">@Configuration</span>
+      <span class="arrow">&#8595;</span>
+<span class="node2">@Component</span>
+      <span class="arrow">&#8595;</span>
+Spring can detect and manage this class</div>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 1</span><h2>Why Bean Creation Order Matters</h2></div>
+
+  <!-- S3 -->
+  <div class="section" id="s3">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#03</span><span class="stitle">Can Spring Create Beans in Any Random Order?</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p><strong>No.</strong> Spring does not create beans blindly in random order. It creates beans based on their dependencies.</p>
+      <p>Suppose we have this dependency chain:</p>
+      <div class="diagram">OrderController depends on OrderService
+OrderService depends on PaymentService
+PaymentService depends on PaymentGateway</div>
+      <p>Before Spring can create <code>OrderService</code>, it needs <code>PaymentService</code>. Before it can create <code>PaymentService</code>, it needs <code>PaymentGateway</code>. So the creation order becomes:</p>
+      <div class="diagram"><span class="node">PaymentGateway</span>
+      <span class="arrow">&#8595;</span>
+<span class="node2">PaymentService</span>
+      <span class="arrow">&#8595;</span>
+<span class="node3">OrderService</span>
+      <span class="arrow">&#8595;</span>
+OrderController</div>
+      <p>Spring tries to create the dependency first, and then the class that depends on it.</p>
+    </div>
+  </div>
+
+  <!-- S4 -->
+  <div class="section" id="s4">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#04</span><span class="stitle">Why This Matters for Circular Dependency</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Now imagine this situation:</p>
+      <div class="diagram">A needs B
+B needs A</div>
+      <p>Spring starts creating <code>A</code>. But to create <code>A</code>, it needs <code>B</code>. Then Spring starts creating <code>B</code>. But to create <code>B</code>, it needs <code>A</code>. So the container gets stuck in a loop:</p>
+      <div class="diagram">To create A, I need B.
+To create B, I need A.
+To create A, I need B.
+...</div>
+      <p>This is the circular dependency problem. Spring creates beans based on dependency order. But when the dependency order becomes circular, Spring cannot find a clear starting point.</p>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 2</span><h2>Circular Dependency</h2></div>
+
+  <!-- S5 -->
+  <div class="section" id="s5">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#05</span><span class="stitle">What Is Circular Dependency?</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Circular dependency means two or more classes depend on each other directly or indirectly.</p>
+      <div class="diagram">OrderService depends on PaymentService
+PaymentService depends on OrderService</div>
+      <p class="clabel">Example Code</p>
+      <pre><span class="ann">@Service</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">OrderService</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> PaymentService paymentService;
+
+    <span class="kw">public</span> <span class="fn">OrderService</span>(PaymentService paymentService) {
+        <span class="kw">this</span>.paymentService = paymentService;
+    }
+}</pre>
+      <pre><span class="ann">@Service</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">PaymentService</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> OrderService orderService;
+
+    <span class="kw">public</span> <span class="fn">PaymentService</span>(OrderService orderService) {
+        <span class="kw">this</span>.orderService = orderService;
+    }
+}</pre>
+      <p>Here, Spring cannot decide which object should be created first. To create <code>OrderService</code>, Spring needs <code>PaymentService</code>. To create <code>PaymentService</code>, Spring needs <code>OrderService</code>. This creates a deadlock-like situation during bean creation.</p>
+    </div>
+  </div>
+
+  <!-- S6 -->
+  <div class="section" id="s6">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#06</span><span class="stitle">Circular Dependency Is Not Only a Spring Problem</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Circular dependency is not only a Spring-specific issue. It can happen in normal Java as well.</p>
+      <p class="clabel">Simple Java Example</p>
+      <pre><span class="kw">public</span> <span class="kw">class</span> <span class="fn">A</span> {
+    <span class="kw">private</span> B b;
+
+    <span class="kw">public</span> <span class="fn">A</span>() {
+        <span class="kw">this</span>.b = <span class="kw">new</span> B();
+    }
+}</pre>
+      <pre><span class="kw">public</span> <span class="kw">class</span> <span class="fn">B</span> {
+    <span class="kw">private</span> A a;
+
+    <span class="kw">public</span> <span class="fn">B</span>() {
+        <span class="kw">this</span>.a = <span class="kw">new</span> A();
+    }
+}</pre>
+      <p>Now suppose we write:</p>
+      <pre><span class="kw">public</span> <span class="kw">class</span> <span class="fn">Main</span> {
+    <span class="kw">public</span> <span class="kw">static</span> <span class="kw">void</span> <span class="fn">main</span>(String[] args) {
+        A a = <span class="kw">new</span> A();
+    }
+}</pre>
+      <p>The flow becomes:</p>
+      <div class="diagram">new A()
+  &#8594; A constructor runs
+  &#8594; new B()
+      &#8594; B constructor runs
+      &#8594; new A()
+          &#8594; A constructor runs
+              &#8594; new B()
+                  &#8594; new A()
+                      &#8594; ...</div>
+      <p>This never ends. Eventually, Java throws:</p>
+      <div class="callout co"><code style="background:transparent;border:none;color:#ffc48a;padding:0">StackOverflowError</code></div>
+      <p>This happens because constructor calls keep getting stacked again and again. So circular dependency is a design problem. Spring simply exposes this problem during bean creation.</p>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 3</span><h2>Constructor-Based Circular Dependency</h2></div>
+
+  <!-- S7 -->
+  <div class="section" id="s7">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#07</span><span class="stitle">Why Constructor Injection Fails in Circular Dependency</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Constructor injection has one strict rule:</p>
+      <div class="callout">An object cannot be created until all constructor arguments are available.</div>
+      <pre><span class="kw">public</span> <span class="fn">OrderService</span>(PaymentService paymentService) {
+    <span class="kw">this</span>.paymentService = paymentService;
+}</pre>
+      <p>To create <code>OrderService</code>, Spring must already have a <code>PaymentService</code> object. But if <code>PaymentService</code> also needs <code>OrderService</code> in its constructor, Spring cannot create either of them first. The loop becomes:</p>
+      <div class="diagram">Create OrderService &#8594; needs PaymentService
+Create PaymentService &#8594; needs OrderService
+Create OrderService &#8594; needs PaymentService
+...</div>
+      <p>There is no starting point. That is why constructor-based circular dependency fails. Spring detects this situation during startup and throws an exception such as:</p>
+      <div class="callout cb"><code style="background:transparent;border:none;color:#a5c9ff;padding:0">BeanCurrentlyInCreationException</code></div>
+      <p>The application fails to start.</p>
+    </div>
+  </div>
+
+  <!-- S8 -->
+  <div class="section" id="s8">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#08</span><span class="stitle">Why Constructor Injection Is Still Recommended</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Even though constructor injection fails in circular dependency, constructor injection is still the preferred style in most cases. Why? Because it makes dependencies clear and mandatory.</p>
+      <pre><span class="ann">@Service</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">OrderService</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> PaymentService paymentService;
+
+    <span class="kw">public</span> <span class="fn">OrderService</span>(PaymentService paymentService) {
+        <span class="kw">this</span>.paymentService = paymentService;
+    }
+}</pre>
+      <p>This tells us:</p>
+      <div class="callout">OrderService cannot exist without PaymentService.</div>
+      <p>So constructor injection is not the problem. The real problem is the circular design.</p>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 4</span><h2>Setter and Field Injection in Circular Dependency</h2></div>
+
+  <!-- S9 -->
+  <div class="section" id="s9">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#09</span><span class="stitle">Circular Dependency Using Setter Injection</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Now let us rewrite the same example using setter injection.</p>
+      <pre><span class="ann">@Service</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">OrderService</span> {
+
+    <span class="kw">private</span> PaymentService paymentService;
+
+    <span class="ann">@Autowired</span>
+    <span class="kw">public</span> <span class="kw">void</span> <span class="fn">setPaymentService</span>(PaymentService paymentService) {
+        <span class="kw">this</span>.paymentService = paymentService;
+    }
+}</pre>
+      <pre><span class="ann">@Service</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">PaymentService</span> {
+
+    <span class="kw">private</span> OrderService orderService;
+
+    <span class="ann">@Autowired</span>
+    <span class="kw">public</span> <span class="kw">void</span> <span class="fn">setOrderService</span>(OrderService orderService) {
+        <span class="kw">this</span>.orderService = orderService;
+    }
+}</pre>
+      <p>In setter injection, object creation and dependency injection are separate steps. Spring can conceptually do this:</p>
+      <div class="diagram">Step 1: Create empty OrderService object
+Step 2: Create empty PaymentService object
+Step 3: Inject PaymentService into OrderService
+Step 4: Inject OrderService into PaymentService</div>
+      <div class="g2">
+        <div class="gc"><h4>Constructor Injection</h4><ul><li>Dependency must exist before object creation</li></ul></div>
+        <div class="gc"><h4>Setter Injection</h4><ul><li>Object can be created first</li><li>Dependency can be injected later</li></ul></div>
+      </div>
+      <p>Because of this difference, setter injection may sometimes allow Spring to resolve circular dependency.</p>
+    </div>
+  </div>
+
+  <!-- S10 -->
+  <div class="section" id="s10">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#10</span><span class="stitle">Circular Dependency Using Field Injection</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>The same thing can happen with field injection.</p>
+      <pre><span class="ann">@Service</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">OrderService</span> {
+
+    <span class="ann">@Autowired</span>
+    <span class="kw">private</span> PaymentService paymentService;
+}</pre>
+      <pre><span class="ann">@Service</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">PaymentService</span> {
+
+    <span class="ann">@Autowired</span>
+    <span class="kw">private</span> OrderService orderService;
+}</pre>
+      <p>Here also, Spring can create the object first and inject the dependency later. But this does not mean circular dependency is a good practice. It only means Spring may be able to handle some circular dependencies when object creation and dependency injection are separated.</p>
+    </div>
+  </div>
+
+  <!-- S11 -->
+  <div class="section" id="s11">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#11</span><span class="stitle">Why Setter/Field Circular Dependency May Work</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>In setter or field injection, the constructor does not require the dependency immediately.</p>
+      <pre><span class="ann">@Service</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">OrderService</span> {
+
+    <span class="ann">@Autowired</span>
+    <span class="kw">private</span> PaymentService paymentService;
+
+    <span class="kw">public</span> <span class="fn">OrderService</span>() {
+        System.out.println(<span class="str">"OrderService object created"</span>);
+    }
+}</pre>
+      <p>Here, Spring can create the <code>OrderService</code> object without immediately needing <code>PaymentService</code>. Similarly:</p>
+      <pre><span class="ann">@Service</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">PaymentService</span> {
+
+    <span class="ann">@Autowired</span>
+    <span class="kw">private</span> OrderService orderService;
+
+    <span class="kw">public</span> <span class="fn">PaymentService</span>() {
+        System.out.println(<span class="str">"PaymentService object created"</span>);
+    }
+}</pre>
+      <p>Spring gets some flexibility. Conceptually, Spring can say:</p>
+      <div class="diagram">I have created OrderService object,
+but it is not fully initialized yet.
+
+Still, I can keep an early reference to it.
+
+Now I create PaymentService.
+PaymentService needs OrderService.
+
+I can give it the early reference of OrderService.
+
+Then I come back and inject PaymentService into OrderService.</div>
+      <p>This is the basic idea behind Spring's early reference mechanism.</p>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 5</span><h2>Spring's Early Reference Concept</h2></div>
+
+  <!-- S12 -->
+  <div class="section" id="s12">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#12</span><span class="stitle">Normal Dependency Flow</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>In a normal dependency situation:</p>
+      <div class="diagram">A needs B</div>
+      <p>Spring creates <code>B</code> first. Then it injects <code>B</code> into <code>A</code>.</p>
+      <div class="diagram">Create B
+Inject dependencies into B
+Initialize B
+B is ready
+
+Create A
+Inject B into A
+Initialize A
+A is ready</div>
+      <p>The dependent bean receives a fully created and initialized dependency.</p>
+    </div>
+  </div>
+
+  <!-- S13 -->
+  <div class="section" id="s13">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#13</span><span class="stitle">Circular Dependency Flow with Early Reference</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>In a circular dependency:</p>
+      <div class="diagram">A needs B
+B needs A</div>
+      <p>Spring may try to create one object first and expose an early reference to it. Conceptually:</p>
+      <pre>A a = <span class="kw">new</span> A(); <span class="cm">// A exists, but dependencies are not injected yet</span>
+
+B b = <span class="kw">new</span> B(); <span class="cm">// B exists</span>
+
+b.setA(a);      <span class="cm">// B receives early reference of A</span>
+a.setB(b);      <span class="cm">// A receives B</span></pre>
+      <p>An early reference means:</p>
+      <div class="callout">Spring exposes a reference of a bean before the bean is fully initialized, so another bean can temporarily use that reference during circular dependency resolution.</div>
+      <p>This can help Spring resolve some setter/field-based circular dependencies.</p>
+    </div>
+  </div>
+
+  <!-- S14 -->
+  <div class="section" id="s14">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#14</span><span class="stitle">Important Spring Boot Point</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Spring Framework has internal mechanisms to resolve some setter or field-based circular dependencies. However, <strong>Spring Boot discourages circular references</strong>.</p>
+      <p>From Spring Boot 2.6 onward, circular references are disabled by default. The related property is:</p>
+      <pre>spring.main.allow-circular-references=<span class="val">false</span></pre>
+      <p>Its default value is <code>false</code>. You can technically enable it:</p>
+      <pre>spring.main.allow-circular-references=<span class="val">true</span></pre>
+      <p>But this should not be treated as the solution. The better solution is to improve the design.</p>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 6</span><h2>Why Circular Dependency Is a Design Smell</h2></div>
+
+  <!-- S15 -->
+  <div class="section" id="s15">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#15</span><span class="stitle">Circular Dependency Usually Indicates Mixed Responsibilities</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Circular dependency is usually not only a technical issue. It often shows that responsibilities are not clearly separated. Ask these questions:</p>
+      <div class="diagram">Why does A need B?
+Why does B also need A?
+Are both classes doing too much?
+Can we move common logic to a third class?
+Can one dependency direction be removed?</div>
+      <p>Example:</p>
+      <div class="diagram">OrderService depends on PaymentService
+PaymentService depends on OrderService</div>
+      <p>This may indicate that order-related logic and payment-related logic are mixed. A better design may be:</p>
+      <div class="diagram">OrderService &#8594; PaymentService
+
+or
+
+OrderService &#8594; PaymentService
+PaymentService &#8594; PaymentStatusRepository
+
+or
+
+OrderService &#8594; PaymentProcessor
+PaymentService &#8594; PaymentProcessor</div>
+      <p>Instead of both depending on each other.</p>
+    </div>
+  </div>
+
+  <!-- S16 -->
+  <div class="section" id="s16">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#16</span><span class="stitle">Best Way to Solve Circular Dependency</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>The best solution is refactoring. Possible ways:</p>
+      <table>
+        <tr><th>Problem</th><th>Better Design</th></tr>
+        <tr><td>Two services call each other</td><td>Move shared logic to a third service</td></tr>
+        <tr><td>One service has too many responsibilities</td><td>Split responsibilities</td></tr>
+        <tr><td>Both classes depend on each other's internal behavior</td><td>Introduce an interface or event-based communication</td></tr>
+        <tr><td>Service is doing orchestration and business logic together</td><td>Create a separate coordinator/orchestrator class</td></tr>
+      </table>
+      <p>The first principle is simple:</p>
+      <div class="callout">Avoid circular dependency by designing clear responsibility boundaries.</div>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 7</span><h2>Bean Scope</h2></div>
+
+  <!-- S17 -->
+  <div class="section" id="s17">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#17</span><span class="stitle">What Is Bean Scope?</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Bean scope decides:</p>
+      <div class="callout">How many objects Spring will create for a bean and how long those objects will live.</div>
+      <p>The important question is: <em>how many objects will Spring create for one bean definition?</em> Spring provides different scopes for different use cases. The two most important core scopes are:</p>
+      <div class="diagram">singleton
+prototype</div>
+      <p>In web applications, Spring also provides:</p>
+      <div class="diagram">request
+session
+application
+websocket</div>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 8</span><h2>Singleton Scope</h2></div>
+
+  <!-- S18 -->
+  <div class="section" id="s18">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#18</span><span class="stitle">What Is Singleton Scope?</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Singleton scope means:</p>
+      <div class="callout">Spring creates exactly one object for a bean definition inside the Spring container, stores it, and returns the same object whenever needed.</div>
+      <p>Singleton is the default scope in Spring. So this:</p>
+      <pre><span class="ann">@Component</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">PaymentService</span> {
+}</pre>
+      <p>is the same as:</p>
+      <pre><span class="ann">@Component</span>
+<span class="ann">@Scope</span>(<span class="str">"singleton"</span>)
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">PaymentService</span> {
+}</pre>
+      <p>Usually, we do not need to write <code>@Scope("singleton")</code> explicitly.</p>
+    </div>
+  </div>
+
+  <!-- S19 -->
+  <div class="section" id="s19">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#19</span><span class="stitle">Singleton Scope Demo</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <pre>ApplicationContext context =
+        <span class="kw">new</span> AnnotationConfigApplicationContext(AppConfig.class);
+
+PaymentService p1 = context.getBean(PaymentService.class);
+PaymentService p2 = context.getBean(PaymentService.class);
+
+System.out.println(p1 == p2);</pre>
+      <p class="clabel">Output</p>
+      <pre><span class="val">true</span></pre>
+      <p>Both references point to the same Spring-managed singleton bean.</p>
+    </div>
+  </div>
+
+  <!-- S20 -->
+  <div class="section" id="s20">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#20</span><span class="stitle">Important Clarification About Singleton</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Spring singleton does <strong>not</strong> mean:</p>
+      <div class="callout co">Only one object of this class can ever exist in the JVM.</div>
+      <p>We can still manually create an object:</p>
+      <pre>PaymentService p = <span class="kw">new</span> PaymentService();</pre>
+      <p>But this object is not managed by Spring. Spring singleton means:</p>
+      <div class="callout">Inside this Spring container, for this bean definition, Spring keeps one shared object.</div>
+    </div>
+  </div>
+
+  <!-- S21 -->
+  <div class="section" id="s21">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#21</span><span class="stitle">Singleton Is Per Bean Definition, Not Per Class</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Consider this example:</p>
+      <pre><span class="ann">@Bean</span>
+<span class="kw">public</span> User <span class="fn">createUser</span>() {
+    <span class="kw">return</span> <span class="kw">new</span> User();
+}
+
+<span class="ann">@Bean</span>
+<span class="kw">public</span> User <span class="fn">createUser2</span>() {
+    <span class="kw">return</span> <span class="kw">new</span> User();
+}</pre>
+      <p>Spring creates two different bean definitions: <code>createUser</code> and <code>createUser2</code>. Both are singleton by default. So Spring creates:</p>
+      <div class="diagram">createUser  &#8594; one User object
+createUser2 &#8594; one User object</div>
+      <p>Total: 2 bean definitions, 2 singleton objects. Therefore:</p>
+      <div class="callout">In Spring, singleton means one object per bean name or bean definition inside the Spring container. It does not mean one object per class.</div>
+      <p>This is different from the traditional Singleton Design Pattern.</p>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 9</span><h2>Prototype Scope</h2></div>
+
+  <!-- S22 -->
+  <div class="section" id="s22">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#22</span><span class="stitle">What Is Prototype Scope?</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Prototype scope means:</p>
+      <div class="callout">Spring creates a new object every time that bean is requested from the container.</div>
+      <pre><span class="ann">@Component</span>
+<span class="ann">@Scope</span>(<span class="str">"prototype"</span>)
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">OrderRequest</span> {
+
+    <span class="kw">public</span> <span class="fn">OrderRequest</span>() {
+        System.out.println(<span class="str">"OrderRequest object created"</span>);
+    }
+}</pre>
+      <p>Now if we do:</p>
+      <pre>ApplicationContext context =
+        <span class="kw">new</span> AnnotationConfigApplicationContext(AppConfig.class);
+
+OrderRequest r1 = context.getBean(OrderRequest.class);
+OrderRequest r2 = context.getBean(OrderRequest.class);
+
+System.out.println(r1 == r2);</pre>
+      <p class="clabel">Output</p>
+      <pre><span class="val">false</span></pre>
+      <p>Why? Because each request gives a new object.</p>
+    </div>
+  </div>
+
+  <!-- S23 -->
+  <div class="section" id="s23">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#23</span><span class="stitle">Prototype Feels Closer to new</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Prototype scope feels closer to manual object creation using <code>new</code>. Every time we ask Spring for the bean, it gives a fresh object.</p>
+      <div class="diagram">context.getBean(OrderRequest.class) &#8594; new object
+context.getBean(OrderRequest.class) &#8594; new object
+context.getBean(OrderRequest.class) &#8594; new object</div>
+      <p>But the object is still created by Spring, not manually by us.</p>
+    </div>
+  </div>
+
+  <!-- S24 -->
+  <div class="section" id="s24">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#24</span><span class="stitle">When to Use Singleton and Prototype</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>A simple rule:</p>
+      <table>
+        <tr><th>Scope</th><th>Best For</th></tr>
+        <tr><td><strong>Singleton</strong></td><td>Stateless beans that provide behavior</td></tr>
+        <tr><td><strong>Prototype</strong></td><td>Stateful beans that store changing data</td></tr>
+      </table>
+      <p class="clabel">Singleton Example</p>
+      <p>Services are usually singleton, because they usually contain behavior, not user-specific changing data:</p>
+      <pre><span class="ann">@Service</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">PaymentService</span> {
+}
+
+<span class="cm">// processPayment()
+// validateOrder()
+// sendEmail()
+// calculateDiscount()</span></pre>
+      <p>These methods can be reused safely.</p>
+      <p class="clabel">Prototype Example</p>
+      <p>Prototype can be used when each request needs a fresh object with its own state:</p>
+      <pre><span class="ann">@Component</span>
+<span class="ann">@Scope</span>(<span class="str">"prototype"</span>)
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">OrderRequest</span> {
+}</pre>
+      <p>Each time we need a new <code>OrderRequest</code>, Spring can create a fresh object.</p>
+    </div>
+  </div>
+
+  <!-- S25 -->
+  <div class="section" id="s25">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#25</span><span class="stitle">Prototype Bean Injected Into Singleton Bean</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Important question:</p>
+      <div class="callout cb">If we inject a prototype bean into a singleton bean, will the singleton get a new prototype object every time?</div>
+      <p><strong>Answer: No.</strong></p>
+      <p>Because the singleton bean is created only once. At the time of singleton creation, Spring injects one prototype object into it. After that, the same singleton object keeps using the same injected prototype reference.</p>
+      <pre><span class="ann">@Service</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">OrderService</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> OrderRequest orderRequest;
+
+    <span class="kw">public</span> <span class="fn">OrderService</span>(OrderRequest orderRequest) {
+        <span class="kw">this</span>.orderRequest = orderRequest;
+    }
+}</pre>
+      <p>If <code>OrderService</code> is singleton and <code>OrderRequest</code> is prototype, then Spring injects one <code>OrderRequest</code> object when <code>OrderService</code> is created. After that, the same <code>OrderRequest</code> reference remains inside the singleton.</p>
+      <p>So prototype does <strong>not</strong> automatically mean:</p>
+      <div class="callout co">new object every time a singleton method runs</div>
+      <p>It means:</p>
+      <div class="callout">new object every time the prototype bean is requested from the container</div>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 10</span><h2>Web Scopes</h2></div>
+
+  <!-- S26 -->
+  <div class="section" id="s26">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#26</span><span class="stitle">Web-Specific Bean Scopes</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Apart from <code>singleton</code> and <code>prototype</code>, Spring also provides web-specific scopes.</p>
+      <table>
+        <tr><th>Scope</th><th>One Object For</th></tr>
+        <tr><td><code>request</code></td><td>One HTTP request</td></tr>
+        <tr><td><code>session</code></td><td>One user session</td></tr>
+        <tr><td><code>application</code></td><td>One ServletContext / whole web application</td></tr>
+        <tr><td><code>websocket</code></td><td>One WebSocket session</td></tr>
+      </table>
+      <p>These scopes are available only in a web-aware Spring <code>ApplicationContext</code>. For beginner-level Spring MVC or Spring Boot Web understanding, the most important scopes are <code>request</code>, <code>session</code>, and <code>application</code>.</p>
+    </div>
+  </div>
+
+  <!-- S27 -->
+  <div class="section" id="s27">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#27</span><span class="stitle">Request Scope</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Request scope means:</p>
+      <div class="callout">Spring creates one bean object for one HTTP request.</div>
+      <div class="diagram">User sends request 1 &#8594; new request-scoped bean
+User sends request 2 &#8594; new request-scoped bean</div>
+      <p>This is useful when data should live only during one HTTP request.</p>
+    </div>
+  </div>
+
+  <!-- S28 -->
+  <div class="section" id="s28">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#28</span><span class="stitle">Session Scope</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Session scope means:</p>
+      <div class="callout">Spring creates one bean object for one user session.</div>
+      <div class="diagram">User A session &#8594; one bean object
+User B session &#8594; another bean object</div>
+      <p>This can be useful for user-specific session data.</p>
+    </div>
+  </div>
+
+  <!-- S29 -->
+  <div class="section" id="s29">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#29</span><span class="stitle">Application Scope</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Application scope means:</p>
+      <div class="callout">Spring creates one bean object for the entire web application.</div>
+      <p>This bean is tied to the <code>ServletContext</code>. It is shared across the web application.</p>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 11</span><h2>Bean Initialization</h2></div>
+
+  <!-- S30 -->
+  <div class="section" id="s30">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#30</span><span class="stitle">When Are Beans Actually Created?</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Spring has to answer one important question:</p>
+      <div class="callout cb">When should I create this bean?</div>
+      <p>There are two main answers:</p>
+      <table>
+        <tr><th>Initialization Type</th><th>Meaning</th></tr>
+        <tr><td><strong>Eager initialization</strong></td><td>Create the bean during application startup</td></tr>
+        <tr><td><strong>Lazy initialization</strong></td><td>Create the bean only when it is actually needed</td></tr>
+      </table>
+      <p>By default:</p>
+      <div class="diagram">Singleton beans are eagerly initialized.
+Prototype beans are created lazily, when requested.</div>
+      <p>Lazy initialization can also be enabled using <code>@Lazy</code>.</p>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 12</span><h2>Eager Initialization</h2></div>
+
+  <!-- S31 -->
+  <div class="section" id="s31">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#31</span><span class="stitle">What Is Eager Initialization?</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Eager initialization means:</p>
+      <div class="callout">Spring creates the bean as soon as the application context starts.</div>
+      <p>For singleton beans, this is the default behavior.</p>
+      <pre><span class="ann">@Component</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">PaymentService</span> {
+
+    <span class="kw">public</span> <span class="fn">PaymentService</span>() {
+        System.out.println(<span class="str">"PaymentService object created"</span>);
+    }
+}</pre>
+      <p>When the application starts, Spring creates the singleton bean immediately.</p>
+    </div>
+  </div>
+
+  <!-- S32 -->
+  <div class="section" id="s32">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#32</span><span class="stitle">Why Eager Initialization Is the Default</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>At first, eager initialization may look wasteful. We may think:</p>
+      <div class="callout co">Why create everything at startup if the user may not use it immediately?</div>
+      <p>But eager initialization has a big advantage. It helps the application <strong>fail fast</strong>. Suppose a bean has a configuration issue, missing dependency, or invalid setup. With eager initialization, the application fails during startup. That is useful because we find the problem early &#8212; this is better than starting the application successfully and then failing only when the first user hits a feature.</p>
+      <p>Eager initialization gives:</p>
+      <div class="g2">
+        <div class="gc"><h4>Advantages</h4><ul><li>Fast failure</li><li>Early error detection</li><li>Predictable startup validation</li></ul></div>
+        <div class="gc"><h4>Why default</h4><ul><li>Spring generally prefers eager singleton creation</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 13</span><h2>Lazy Initialization</h2></div>
+
+  <!-- S33 -->
+  <div class="section" id="s33">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#33</span><span class="stitle">What Is Lazy Initialization?</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Lazy initialization means:</p>
+      <div class="callout">Do not create the bean during startup. Create it only when someone actually asks for it.</div>
+      <pre><span class="ann">@Component</span>
+<span class="ann">@Lazy</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">ReportService</span> {
+
+    <span class="kw">public</span> <span class="fn">ReportService</span>() {
+        System.out.println(<span class="str">"ReportService object created"</span>);
+    }
+
+    <span class="kw">public</span> <span class="kw">void</span> <span class="fn">generateReport</span>() {
+        System.out.println(<span class="str">"Report generated"</span>);
+    }
+}</pre>
+      <p>Here, Spring knows about <code>ReportService</code>, but it does not immediately create the object. Spring only keeps the bean definition, which contains information like:</p>
+      <div class="diagram">class name
+scope
+dependencies
+lifecycle details
+bean name</div>
+      <p>The actual object is created only when someone asks for it:</p>
+      <pre>ReportService reportService = context.getBean(ReportService.class);
+reportService.generateReport();</pre>
+      <p class="clabel">Output</p>
+      <pre>Application started
+ReportService object created
+Report generated</pre>
+    </div>
+  </div>
+
+  <!-- S34 -->
+  <div class="section" id="s34">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#34</span><span class="stitle">Important Point: Lazy Bean Needed by Eager Bean</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>If a lazy bean is required by an eager singleton bean, then the lazy bean may still be created at startup. Why? Because Spring must satisfy the dependencies of the eager singleton.</p>
+      <pre><span class="ann">@Component</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">UserService</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> ReportService reportService;
+
+    <span class="kw">public</span> <span class="fn">UserService</span>(ReportService reportService) {
+        <span class="kw">this</span>.reportService = reportService;
+    }
+}</pre>
+      <p>If <code>UserService</code> is eager and needs <code>ReportService</code>, Spring has to provide <code>ReportService</code> while creating <code>UserService</code>. So even if <code>ReportService</code> is marked lazy, it may still be created during startup because another eager bean needs it.</p>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 14</span><h2>@Lazy on Injection Point</h2></div>
+
+  <!-- S35 -->
+  <div class="section" id="s35">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#35</span><span class="stitle">Lazy Dependency Injection Using Proxy</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>There is another interesting use of <code>@Lazy</code>. Instead of making the whole bean lazy, we can mark the injection point as lazy.</p>
+      <pre><span class="ann">@Component</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">UserService</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> EmailService emailService;
+
+    <span class="kw">public</span> <span class="fn">UserService</span>(<span class="ann">@Lazy</span> EmailService emailService) {
+        <span class="kw">this</span>.emailService = emailService;
+        System.out.println(<span class="str">"UserService created"</span>);
+    }
+
+    <span class="kw">public</span> <span class="kw">void</span> <span class="fn">registerUser</span>() {
+        System.out.println(<span class="str">"User registered"</span>);
+        emailService.sendEmail();
+    }
+}</pre>
+      <p>Here, Spring does not inject the real <code>EmailService</code> object immediately. Instead, Spring injects a <strong>proxy object</strong>. A proxy is like a placeholder. Conceptually:</p>
+      <div class="diagram">UserService does not receive the real EmailService immediately.
+
+UserService receives an object that looks like EmailService.
+
+When someone actually calls a method on it,
+Spring creates or fetches the real EmailService.</div>
+      <p class="clabel">Startup Flow</p>
+      <pre>UserService created
+Application started</pre>
+      <p>Later, when this method runs:</p>
+      <pre>emailService.sendEmail();</pre>
+      <p>Spring resolves the real <code>EmailService</code>.</p>
+      <p class="clabel">Output</p>
+      <pre>User registered
+EmailService created
+Email sent</pre>
+    </div>
+  </div>
+
+  <!-- S36 -->
+  <div class="section" id="s36">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#36</span><span class="stitle">Bean-Level @Lazy vs Injection-Point @Lazy</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <table>
+        <tr><th>Usage</th><th>Meaning</th></tr>
+        <tr><td><code>@Lazy</code> on class</td><td>Do not create this bean until it is requested</td></tr>
+        <tr><td><code>@Lazy</code> on injection point</td><td>Inject a proxy and resolve the real dependency only when it is used</td></tr>
+      </table>
+      <p class="clabel">Bean-Level Lazy</p>
+      <pre><span class="ann">@Component</span>
+<span class="ann">@Lazy</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">ReportService</span> {
+}</pre>
+      <p class="clabel">Injection-Point Lazy</p>
+      <pre><span class="kw">public</span> <span class="fn">UserService</span>(<span class="ann">@Lazy</span> EmailService emailService) {
+    <span class="kw">this</span>.emailService = emailService;
+}</pre>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 15</span><h2>Global Lazy Initialization in Spring Boot</h2></div>
+
+  <!-- S37 -->
+  <div class="section" id="s37">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#37</span><span class="stitle">Enabling Global Lazy Initialization</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Spring Boot can make the whole application lazy using this property:</p>
+      <pre>spring.main.lazy-initialization=<span class="val">true</span></pre>
+      <p>In YAML:</p>
+      <pre><span class="kw">spring</span>:
+  <span class="kw">main</span>:
+    lazy-initialization: <span class="val">true</span></pre>
+      <p>This means beans are created only when needed instead of being created during startup. This can reduce startup time. But there is a trade-off: misconfiguration errors may be discovered later, only when the lazy bean is actually initialized.</p>
+    </div>
+  </div>
+
+  <!-- S38 -->
+  <div class="section" id="s38">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#38</span><span class="stitle">Default Value</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>By default:</p>
+      <pre>spring.main.lazy-initialization=<span class="val">false</span></pre>
+      <p>So Spring Boot does not make all beans lazy by default.</p>
+    </div>
+  </div>
+
+  <!-- S39 -->
+  <div class="section" id="s39">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#39</span><span class="stitle">Opting Out of Global Lazy Initialization</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>If global lazy initialization is enabled, we can still force a particular bean to initialize eagerly.</p>
+      <pre><span class="ann">@Component</span>
+<span class="ann">@Lazy</span>(<span class="val">false</span>)
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">ImportantStartupBean</span> {
+}</pre>
+      <p>This means:</p>
+      <div class="callout">Even if global lazy initialization is enabled, create this bean eagerly.</div>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 16</span><h2>Common Lazy Initialization Scenarios</h2></div>
+
+  <!-- S40 -->
+  <div class="section" id="s40">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#40</span><span class="stitle">Eager Bean Depends on Lazy Bean</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <div class="diagram">Eager Bean &#8594; Lazy Dependency</div>
+      <p>If an eager singleton directly needs a lazy dependency, Spring may still create the lazy dependency at startup to satisfy the eager bean. Unless we use <code>@Lazy</code> at the injection point, where Spring can inject a proxy instead.</p>
+    </div>
+  </div>
+
+  <!-- S41 -->
+  <div class="section" id="s41">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#41</span><span class="stitle">Lazy Bean Depends on Eager Bean</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <div class="diagram">Lazy Bean &#8594; Eager Dependency</div>
+      <p>The eager dependency is usually created during startup. The lazy bean is created only when it is needed. When the lazy bean is finally created, Spring injects the already-created eager dependency into it.</p>
+    </div>
+  </div>
+
+  <!-- S42 -->
+  <div class="section" id="s42">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#42</span><span class="stitle">Lazy Bean Depends on Lazy Bean</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <div class="diagram">Lazy Bean &#8594; Lazy Dependency</div>
+      <p>Both beans are not created at startup. When the first lazy bean is requested, Spring creates it. If it directly needs the second lazy bean, Spring may create the second bean at that time as well. If <code>@Lazy</code> is used on the injection point, Spring may inject a proxy and delay the actual dependency creation until a method is called.</p>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 17</span><h2>How @Lazy Can Help in Circular Dependency</h2></div>
+
+  <!-- S43 -->
+  <div class="section" id="s43">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#43</span><span class="stitle">Using @Lazy to Break Constructor Circular Dependency</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Sometimes <code>@Lazy</code> can help break a circular dependency by injecting a proxy instead of the real object immediately.</p>
+      <pre><span class="ann">@Service</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">OrderService</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> PaymentService paymentService;
+
+    <span class="kw">public</span> <span class="fn">OrderService</span>(<span class="ann">@Lazy</span> PaymentService paymentService) {
+        <span class="kw">this</span>.paymentService = paymentService;
+    }
+}</pre>
+      <pre><span class="ann">@Service</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">PaymentService</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> OrderService orderService;
+
+    <span class="kw">public</span> <span class="fn">PaymentService</span>(OrderService orderService) {
+        <span class="kw">this</span>.orderService = orderService;
+    }
+}</pre>
+      <p>Here, Spring does not need to create the real <code>PaymentService</code> immediately while creating <code>OrderService</code>. It can inject a proxy. The real <code>PaymentService</code> is resolved later when it is actually used.</p>
+    </div>
+  </div>
+
+  <!-- S44 -->
+  <div class="section" id="s44">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#44</span><span class="stitle">Important Warning</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Using <code>@Lazy</code> to solve circular dependency should be treated as a <strong>workaround, not the best design</strong>. It may help in some situations, but the better solution is still refactoring. Use <code>@Lazy</code> only when:</p>
+      <div class="diagram">You understand the dependency flow clearly
+Refactoring is not immediately possible
+You are dealing with legacy code
+You want a temporary solution</div>
+      <p>The best long-term solution is:</p>
+      <div class="callout">Fix the design. Separate responsibilities. Remove circular dependency.</div>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 18</span><h2>Bean Lifecycle</h2></div>
+
+  <!-- S45 -->
+  <div class="section" id="s45">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#45</span><span class="stitle">What Is Bean Lifecycle?</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Bean lifecycle means:</p>
+      <div class="callout">The complete journey of a Spring bean from the moment Spring discovers it, creates it, injects dependencies into it, initializes it, uses it, and finally destroys it.</div>
+      <p>At a high level, the lifecycle looks like this:</p>
+      <div class="diagram"><span class="node">Bean Definition</span>
+      <span class="arrow">&#8595;</span>
+<span class="node2">Object Creation</span>
+      <span class="arrow">&#8595;</span>
+<span class="node3">Dependency Injection</span>
+      <span class="arrow">&#8595;</span>
+Initialization
+      <span class="arrow">&#8595;</span>
+Ready to Use
+      <span class="arrow">&#8595;</span>
+Destruction</div>
+    </div>
+  </div>
+
+  <!-- S46 -->
+  <div class="section" id="s46">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#46</span><span class="stitle">Complete Journey of a Spring Bean</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p class="clabel">Step 1: Bean Definition Is Created</p>
+      <p>Spring first discovers the bean. This can happen through <code>@Component</code>, <code>@Service</code>, <code>@Repository</code>, <code>@Controller</code>, <code>@Bean</code> method, or XML configuration. At this stage, Spring has not necessarily created the actual object &#8212; it has only stored the bean definition, which contains:</p>
+      <div class="diagram">bean name
+class name
+scope
+dependencies
+lazy/eager behavior
+lifecycle methods</div>
+
+      <p class="clabel">Step 2: Object Is Created</p>
+      <p>Spring creates the actual object using the constructor:</p>
+      <pre>PaymentService paymentService = <span class="kw">new</span> PaymentService();</pre>
+      <p>But in real Spring code, we do not write this manually. The Spring container does it for us.</p>
+
+      <p class="clabel">Step 3: Dependencies Are Injected</p>
+      <p>After object creation, Spring injects the required dependencies:</p>
+      <pre><span class="ann">@Service</span>
+<span class="kw">public</span> <span class="kw">class</span> <span class="fn">OrderService</span> {
+
+    <span class="kw">private</span> <span class="kw">final</span> PaymentService paymentService;
+
+    <span class="kw">public</span> <span class="fn">OrderService</span>(PaymentService paymentService) {
+        <span class="kw">this</span>.paymentService = paymentService;
+    }
+}</pre>
+      <p>Spring provides <code>PaymentService</code> to <code>OrderService</code>.</p>
+
+      <p class="clabel">Step 4: Bean Is Initialized</p>
+      <p>After dependency injection, Spring runs initialization logic. This is the stage where we can perform setup tasks such as:</p>
+      <div class="diagram">validating configuration
+opening resources
+loading required data
+checking required fields</div>
+      <p>Initialization can be done using different mechanisms such as <code>@PostConstruct</code>, <code>InitializingBean</code>, or a custom init method.</p>
+
+      <p class="clabel">Step 5: Bean Is Ready to Use</p>
+      <p>After initialization, the bean is ready. Other beans can use it. The application can now call its methods.</p>
+
+      <p class="clabel">Step 6: Bean Is Destroyed</p>
+      <p>When the Spring container shuts down, singleton beans are destroyed. This is where cleanup logic can run, such as:</p>
+      <div class="diagram">closing resources
+releasing connections
+stopping background tasks</div>
+      <p>Destruction can be handled using <code>@PreDestroy</code>, <code>DisposableBean</code>, or a custom destroy method.</p>
+      <div class="callout co">For prototype beans, Spring creates the object and injects dependencies, but it does not fully manage the destruction lifecycle in the same way as singleton beans.</div>
+    </div>
+  </div>
+
+  <div class="part-divider"><span class="pnum">PART 19</span><h2>Final Summary</h2></div>
+
+  <!-- S47 -->
+  <div class="section" id="s47">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#47</span><span class="stitle">Circular Dependency Summary</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <p>Circular dependency happens when two or more beans depend on each other.</p>
+      <div class="diagram">A needs B
+B needs A</div>
+      <p>Constructor-based circular dependency usually fails because constructor injection requires all dependencies before object creation. Setter and field injection may sometimes work because object creation and dependency injection are separate steps. But circular dependency is usually a design smell. The best solution is not to depend on hacks, but to refactor the code.</p>
+    </div>
+  </div>
+
+  <!-- S48 -->
+  <div class="section" id="s48">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#48</span><span class="stitle">Scope Summary</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <table>
+        <tr><th>Scope</th><th>Meaning</th></tr>
+        <tr><td><code>singleton</code></td><td>One object per bean definition inside the Spring container</td></tr>
+        <tr><td><code>prototype</code></td><td>New object every time the bean is requested from the container</td></tr>
+        <tr><td><code>request</code></td><td>One object per HTTP request</td></tr>
+        <tr><td><code>session</code></td><td>One object per user session</td></tr>
+        <tr><td><code>application</code></td><td>One object per web application / ServletContext</td></tr>
+      </table>
+      <p>Important point:</p>
+      <div class="callout">Spring singleton means one object per bean definition inside the container, not one object per class in the whole JVM.</div>
+    </div>
+  </div>
+
+  <!-- S49 -->
+  <div class="section" id="s49">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#49</span><span class="stitle">Initialization Summary</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <table>
+        <tr><th>Type</th><th>Meaning</th></tr>
+        <tr><td><strong>Eager initialization</strong></td><td>Bean is created during application startup</td></tr>
+        <tr><td><strong>Lazy initialization</strong></td><td>Bean is created only when needed</td></tr>
+      </table>
+      <p>By default:</p>
+      <div class="diagram">Singleton beans &#8594; eagerly initialized
+Prototype beans &#8594; created when requested</div>
+      <p><code>@Lazy</code> can be used to delay bean creation. <code>@Lazy</code> on an injection point creates a proxy and resolves the real dependency later. Spring Boot also supports global lazy initialization:</p>
+      <pre>spring.main.lazy-initialization=<span class="val">true</span></pre>
+      <p>But lazy initialization can delay errors until runtime.</p>
+    </div>
+  </div>
+
+  <!-- S50 -->
+  <div class="section" id="s50">
+    <div class="sh" onclick="toggle(this)">
+      <span class="snum">#50</span><span class="stitle">Key Takeaways</span><span class="chevron">&#9660;</span>
+    </div>
+    <div class="sb">
+      <div class="callout">Spring creates beans in dependency order, resolves what it can, fails fast on what it can't, and gives us full control over scope and timing.</div>
+    </div>
+  </div>
+
+  <div class="sumbox">
+    <h3>&#128204; Key Takeaways</h3>
+    <ul>
+      <li>Spring creates beans based on dependency order, not randomly.</li>
+      <li>Circular dependency means the dependency order becomes a loop.</li>
+      <li>Constructor-based circular dependency usually fails with <code>BeanCurrentlyInCreationException</code>.</li>
+      <li>Setter or field injection may allow Spring to resolve some circular dependencies using early references.</li>
+      <li>Spring Boot discourages circular references and disables them by default (<code>spring.main.allow-circular-references=false</code>).</li>
+      <li>Circular dependency is usually a design smell and should be solved by refactoring, not by hacks.</li>
+      <li>Singleton scope means one object per bean definition inside the Spring container &#8212; not one object per class in the JVM.</li>
+      <li>Prototype scope means a new object is created whenever the bean is requested from the container.</li>
+      <li>A prototype bean injected into a singleton is created only once, at singleton creation time.</li>
+      <li>Web scopes like <code>request</code>, <code>session</code>, and <code>application</code> are mainly used in web applications.</li>
+      <li>Eager initialization (the default for singletons) helps catch errors early during startup.</li>
+      <li>Lazy initialization delays bean creation until needed, but can delay error discovery until runtime.</li>
+      <li><code>@Lazy</code> on an injection point injects a proxy and resolves the real bean only when it is actually used.</li>
+      <li>Bean lifecycle covers the complete journey: bean definition &#8594; object creation &#8594; dependency injection &#8594; initialization &#8594; ready to use &#8594; destruction.</li>
+    </ul>
+  </div>
+</div>
+
+<footer>
+  <p>Notes by <a href="#">HelloMohit722</a> &#183; Spring &amp; Spring Boot Series &#183; Lecture 6</p>
+  <p style="margin-top:6px;color:var(--muted)">&#169; 2025 HelloMohit722 &#183; All rights reserved</p>
+</footer>
+
+<script>
+  function toggle(h){h.parentElement.classList.toggle('open')}
+  window.addEventListener('scroll',()=>{
+    const d=document.documentElement,st=d.scrollTop||document.body.scrollTop,sh=d.scrollHeight-d.clientHeight;
+    document.getElementById('progress').style.width=(st/sh*100)+'%';
+  });
+</script>
+</body>
+</html>
