@@ -5,3 +5,6 @@ spring vs springboot
 
 
 
+https://fileadmin.cs.lth.se/cs/education/EDA040/common/java21.pdf
+
+Java ONE SHOT
